@@ -6,8 +6,8 @@ import { SearchBar } from '@/components/SearchBar';
 import { FilterSidebar } from '@/components/FilterSidebar';
 import { UniversityCard } from '@/components/UniversityCard';
 import { LoadingState, UniversityCardSkeleton } from '@/components/LoadingState';
-import { useUniversities, useFilteredUniversities, useUniqueStates } from '@/hooks/useUniversities';
-import { FilterState } from '@/types/university';
+import { useUniversities, useFilteredUniversities, useUniqueStates, useFilterStats, useActiveFilterCount } from '@/hooks/useUniversities';
+import { FilterState, DEFAULT_FILTER_STATE } from '@/types/university';
 import { Filter, X } from 'lucide-react';
 
 export default function Universities() {
@@ -15,20 +15,20 @@ export default function Universities() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   
-  const [filters, setFilters] = useState<FilterState>({
-    search: searchParams.get('search') || '',
-    deadlineRange: null,
-    aidAvailable: searchParams.get('filter') === 'aid' ? true : null,
-    freeApplication: searchParams.get('filter') === 'free' ? true : null,
-    noEssays: searchParams.get('filter') === 'noessays' ? true : null,
-    testOptional: null,
-    state: null,
+  const [filters, setFilters] = useState<FilterState>(() => {
+    const initial = { ...DEFAULT_FILTER_STATE };
+    initial.search = searchParams.get('search') || '';
+    if (searchParams.get('filter') === 'aid') initial.aidAvailable = true;
+    if (searchParams.get('filter') === 'free') initial.freeApplication = true;
+    if (searchParams.get('filter') === 'noessays') initial.noEssays = true;
+    return initial;
   });
 
   const states = useUniqueStates(universities);
+  const filterStats = useFilterStats(universities);
   const filteredUniversities = useFilteredUniversities(universities, filters);
+  const activeFilterCount = useActiveFilterCount(filters);
 
-  // Update search param when search changes
   useEffect(() => {
     if (filters.search) {
       searchParams.set('search', filters.search);
@@ -40,6 +40,10 @@ export default function Universities() {
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
+  };
+
+  const clearFilters = () => {
+    setFilters({ ...DEFAULT_FILTER_STATE, search: filters.search });
   };
 
   if (error) {
@@ -61,23 +65,20 @@ export default function Universities() {
     <div className="min-h-screen flex flex-col">
       <Header />
       
-      <main className="flex-1 bg-muted/20">
-        {/* Page Header */}
-        <div className="bg-background border-b border-border/50">
-          <div className="container mx-auto px-4 py-8 md:py-12">
-            <h1 className="heading-section text-foreground mb-4">
+      <main className="flex-1 bg-secondary/30">
+        <div className="bg-background border-b border-border">
+          <div className="container mx-auto px-4 py-8 md:py-10">
+            <h1 className="heading-section text-foreground mb-3">
               Browse Universities
             </h1>
-            <p className="text-muted-foreground max-w-2xl">
-              Explore our comprehensive database of universities. Use the filters to find 
-              the perfect schools for your application list.
+            <p className="text-muted-foreground max-w-2xl text-sm">
+              Explore our comprehensive database. Use advanced filters to find your perfect match.
             </p>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8">
-          {/* Search and Mobile Filter Toggle */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div className="flex-1">
               <SearchBar
                 value={filters.search}
@@ -87,50 +88,58 @@ export default function Universities() {
             </div>
             <button
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-card border border-border rounded-lg"
+              className="lg:hidden flex items-center justify-center gap-2 px-4 py-3 bg-card border border-border rounded-lg text-sm font-medium"
             >
               <Filter className="w-4 h-4" />
               Filters
+              {activeFilterCount > 0 && (
+                <span className="bg-accent text-accent-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Sidebar - Desktop */}
+          <div className="flex flex-col lg:flex-row gap-6">
             <aside className="hidden lg:block w-80 flex-shrink-0">
-              <div className="sticky top-24 bg-card border border-border/50 rounded-xl p-6">
+              <div className="sticky top-20 bg-card border border-border rounded-xl p-5 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
                 <FilterSidebar
                   filters={filters}
                   onFilterChange={handleFilterChange}
+                  onClearFilters={clearFilters}
                   states={states}
+                  filterStats={filterStats}
                   totalCount={universities.length}
                   filteredCount={filteredUniversities.length}
+                  activeFilterCount={activeFilterCount}
                 />
               </div>
             </aside>
 
-            {/* Mobile Filters */}
             {showMobileFilters && (
               <div className="lg:hidden fixed inset-0 z-50 bg-background">
                 <div className="p-4 border-b border-border flex items-center justify-between">
                   <h3 className="font-serif text-lg font-medium">Filters</h3>
-                  <button
-                    onClick={() => setShowMobileFilters(false)}
-                    className="p-2"
-                  >
+                  <button onClick={() => setShowMobileFilters(false)} className="p-2">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="p-6 overflow-auto max-h-[calc(100vh-80px)]">
+                <div className="p-5 overflow-auto max-h-[calc(100vh-140px)]">
                   <FilterSidebar
                     filters={filters}
                     onFilterChange={handleFilterChange}
+                    onClearFilters={clearFilters}
                     states={states}
+                    filterStats={filterStats}
                     totalCount={universities.length}
                     filteredCount={filteredUniversities.length}
+                    activeFilterCount={activeFilterCount}
                   />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
                   <button
                     onClick={() => setShowMobileFilters(false)}
-                    className="mt-8 w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium"
+                    className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium text-sm"
                   >
                     Show {filteredUniversities.length} Results
                   </button>
@@ -138,10 +147,9 @@ export default function Universities() {
               </div>
             )}
 
-            {/* University Grid */}
             <div className="flex-1">
               {loading ? (
-                <div className="grid gap-6">
+                <div className="grid gap-4">
                   {[...Array(6)].map((_, i) => (
                     <UniversityCardSkeleton key={i} />
                   ))}
@@ -149,12 +157,10 @@ export default function Universities() {
               ) : filteredUniversities.length === 0 ? (
                 <div className="text-center py-16">
                   <h3 className="font-serif text-xl mb-2">No universities found</h3>
-                  <p className="text-muted-foreground">
-                    Try adjusting your search or filters
-                  </p>
+                  <p className="text-muted-foreground text-sm">Try adjusting your filters</p>
                 </div>
               ) : (
-                <div className="grid gap-6 stagger-children">
+                <div className="grid gap-4 stagger-children">
                   {filteredUniversities.map(university => (
                     <UniversityCard key={university.id} university={university} />
                   ))}

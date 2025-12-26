@@ -29,6 +29,56 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
+// Parse percentage string like "62%" to number 62
+function parsePercent(value: string): number | undefined {
+  if (!value || value === '-' || value === 'N/A' || value === 'Not Reported') return undefined;
+  const match = value.match(/(\d+)/);
+  if (match) {
+    return parseInt(match[1]);
+  }
+  return undefined;
+}
+
+// Parse currency string like "$68,622" to number 68622
+function parseCurrency(value: string): number | undefined {
+  if (!value || value === '-' || value === 'N/A' || value === 'Not Reported') return undefined;
+  // Handle ranges like "$24,997 (IS) / $43,287 (OS)" - take the first value
+  const firstValue = value.split('/')[0].trim();
+  const match = firstValue.replace(/[$,]/g, '').match(/(\d+)/);
+  if (match) {
+    return parseInt(match[1]);
+  }
+  return undefined;
+}
+
+// Parse number with commas like "1,171" to number 1171
+function parseNumber(value: string): number | undefined {
+  if (!value || value === '-' || value === 'N/A' || value === 'Not Reported') return undefined;
+  const cleaned = value.replace(/,/g, '');
+  const num = parseInt(cleaned);
+  return isNaN(num) ? undefined : num;
+}
+
+// Parse score range like "540-640" to [540, 640]
+function parseScoreRange(value: string): [number | undefined, number | undefined] {
+  if (!value || value === '-' || value === 'N/A') return [undefined, undefined];
+  const match = value.match(/(\d+)\s*[-–]\s*(\d+)/);
+  if (match) {
+    return [parseInt(match[1]), parseInt(match[2])];
+  }
+  return [undefined, undefined];
+}
+
+// Parse temperature string like "52°/33°" to get the high temp
+function parseTemp(value: string): number | undefined {
+  if (!value || value === '-' || value === 'N/A') return undefined;
+  const match = value.match(/(\d+)°/);
+  if (match) {
+    return parseInt(match[1]);
+  }
+  return undefined;
+}
+
 export function parseMainCSV(csvContent: string): University[] {
   const lines = csvContent.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
@@ -38,6 +88,10 @@ export function parseMainCSV(csvContent: string): University[] {
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
     if (values.length < 10 || !values[0]) continue;
+    
+    const [satMathLow, satMathHigh] = parseScoreRange(values[6] || '');
+    const [satRWLow, satRWHigh] = parseScoreRange(values[7] || '');
+    const [actLow, actHigh] = parseScoreRange(values[8] || '');
     
     const university: University = {
       id: generateId(values[0]),
@@ -89,6 +143,31 @@ export function parseMainCSV(csvContent: string): University[] {
       percentWhite: values[45] || '',
       percentUnknown: values[46] || '',
       percentInternational: values[47] || '',
+      // Parsed numeric values for filtering
+      parsedAcceptanceRate: parsePercent(values[2]),
+      parsedEDAcceptanceRate: parsePercent(values[1]),
+      parsedRegularAcceptanceRate: parsePercent(values[3]),
+      parsedCostOfAttendance: parseCurrency(values[16]),
+      parsedPercentNeedMet: parsePercent(values[19]),
+      parsedAvgMeritAward: parseCurrency(values[18]),
+      parsedPercentMeritAid: parsePercent(values[17]),
+      parsedNetROI: parseCurrency(values[25]),
+      parsedMedianEarnings10Years: parseCurrency(values[24]),
+      parsedGraduationRate4Year: parsePercent(values[27]),
+      parsedGraduationRate6Year: parsePercent(values[28]),
+      parsedFreshmanRetention: parsePercent(values[26]),
+      parsedTotalEnrollment: parseNumber(values[39]),
+      parsedPercentInternational: parsePercent(values[47]),
+      parsedPercentOnCampus: parsePercent(values[21]),
+      parsedSunnyDays: parseNumber(values[38]),
+      parsedDaysWithPrecipitation: parseNumber(values[37]),
+      parsedJanTemp: parseTemp(values[33]),
+      parsedSATMathLow: satMathLow,
+      parsedSATMathHigh: satMathHigh,
+      parsedSATRWLow: satRWLow,
+      parsedSATRWHigh: satRWHigh,
+      parsedACTLow: actLow,
+      parsedACTHigh: actHigh,
     };
     
     universities.push(university);
