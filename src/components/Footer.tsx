@@ -1,5 +1,3 @@
-import { GraduationCap } from 'lucide-react';
-
 export function Footer() {
   return (
     <footer className="border-t border-border/50 bg-muted/30">
@@ -8,9 +6,11 @@ export function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <GraduationCap className="w-4 h-4 text-primary-foreground" />
-              </div>
+              <img 
+                src="/favicon.png" 
+                alt="Admissions Intelligence" 
+                className="w-8 h-8 rounded-lg object-cover"
+              />
               <span className="font-serif text-lg font-medium">
                 Admissions<span className="text-accent">Intelligence</span>
               </span>

@@ -33,7 +33,7 @@ export default function Home() {
     {
       icon: FileText,
       title: 'Essay Insights',
-      description: 'Discover which schools have no supplemental essays to streamline your process.',
+      description: 'Discover which schools have no supplement essays to streamline your process.',
     },
     {
       icon: Globe,
@@ -109,14 +109,14 @@ export default function Home() {
                   to="/universities?filter=free"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Free Applications →
+                  Free Scoir Applications →
                 </Link>
                 <span className="text-border">|</span>
                 <Link
                   to="/universities?filter=noessays"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  No Essays Required →
+                  No Supplement Essays →
                 </Link>
               </div>
             </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { University, FilterState, DEFAULT_FILTER_STATE } from '@/types/university';
+import { useState, useEffect, useMemo } from 'react';
+import { University, FilterState } from '@/types/university';
 import { parseMainCSV, parseExtrasCSV, mergeExtrasIntoUniversities, deduplicateUniversities } from '@/utils/csvParser';
 
 const CSV_FILES = [
@@ -48,7 +48,9 @@ export function useUniversities() {
         const extras = parseExtrasCSV(extrasContent);
         allUniversities = mergeExtrasIntoUniversities(allUniversities, extras);
         allUniversities = deduplicateUniversities(allUniversities);
-        allUniversities.sort((a, b) => a.institution.localeCompare(b.institution));
+        
+        // Sort by closest deadline by default (Regular Decision focus)
+        allUniversities = sortByClosestDeadline(allUniversities);
         
         setUniversities(allUniversities);
         setError(null);
@@ -66,7 +68,7 @@ export function useUniversities() {
   return { universities, loading, error };
 }
 
-function parseDeadline(dateStr: string): Date | null {
+function parseDeadlineDate(dateStr: string): Date | null {
   if (!dateStr || dateStr === '-' || dateStr === 'N/A') return null;
   
   const months: Record<string, number> = {
@@ -74,16 +76,64 @@ function parseDeadline(dateStr: string): Date | null {
     'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
   };
   
-  const match = dateStr.match(/([A-Za-z]+)\s+(\d+)/);
+  const match = dateStr.match(/([A-Za-z]+)\s*(\d+)/);
   if (match) {
     const month = months[match[1]];
     const day = parseInt(match[2]);
     if (month !== undefined && !isNaN(day)) {
-      return new Date(2025, month, day);
+      const now = new Date();
+      let year = now.getFullYear();
+      const deadlineDate = new Date(year, month, day);
+      if (deadlineDate < now) {
+        year++;
+      }
+      return new Date(year, month, day);
     }
   }
   
   return null;
+}
+
+function getClosestDeadlineDays(uni: University): number {
+  // Prioritize Regular Decision
+  const deadlines = [
+    uni.regularDecision,
+    uni.earlyDecisionII,
+    uni.earlyActionII,
+    uni.earlyDecisionI,
+    uni.earlyActionI,
+  ];
+  
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
+  let closestDays = Infinity;
+  
+  for (const dl of deadlines) {
+    const parsed = parseDeadlineDate(dl);
+    if (parsed) {
+      const diffTime = parsed.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays >= 0 && diffDays < closestDays) {
+        closestDays = diffDays;
+      }
+    }
+  }
+  
+  return closestDays;
+}
+
+function sortByClosestDeadline(universities: University[]): University[] {
+  return [...universities].sort((a, b) => {
+    const daysA = getClosestDeadlineDays(a);
+    const daysB = getClosestDeadlineDays(b);
+    return daysA - daysB;
+  });
+}
+
+function parseDeadline(dateStr: string): Date | null {
+  return parseDeadlineDate(dateStr);
 }
 
 function isInDeadlineRange(uni: University, rangeLabel: string): boolean {
@@ -155,7 +205,7 @@ function isTestOptional(uni: University): boolean {
 
 export function useFilteredUniversities(universities: University[], filters: FilterState) {
   return useMemo(() => {
-    return universities.filter(uni => {
+    let filtered = universities.filter(uni => {
       // Search filter
       if (filters.search) {
         const search = filters.search.toLowerCase();
@@ -185,12 +235,11 @@ export function useFilteredUniversities(universities: University[], filters: Fil
         if (uni.parsedAcceptanceRate > filters.acceptanceRateMax) return false;
       }
       
-      // SAT score filter (check if user's score falls in school's range)
+      // SAT score filter
       if (filters.satScoreMin !== null) {
         const userScore = filters.satScoreMin;
-        // User score should be >= school's 25th percentile (we use combined SAT)
         const schoolMin = (uni.parsedSATMathLow || 0) + (uni.parsedSATRWLow || 0);
-        if (schoolMin > 0 && userScore < schoolMin * 0.9) return false; // 10% buffer
+        if (schoolMin > 0 && userScore < schoolMin * 0.9) return false;
       }
       if (filters.satScoreMax !== null) {
         const userScore = filters.satScoreMax;
@@ -305,6 +354,9 @@ export function useFilteredUniversities(universities: University[], filters: Fil
       
       return true;
     });
+    
+    // Keep sorted by closest deadline
+    return sortByClosestDeadline(filtered);
   }, [universities, filters]);
 }
 

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterSidebar } from '@/components/FilterSidebar';
 import { UniversityCard } from '@/components/UniversityCard';
-import { LoadingState, UniversityCardSkeleton } from '@/components/LoadingState';
+import { StickyFilterBar } from '@/components/StickyFilterBar';
+import { UniversityCardSkeleton } from '@/components/LoadingState';
 import { useUniversities, useFilteredUniversities, useUniqueStates, useFilterStats, useActiveFilterCount } from '@/hooks/useUniversities';
 import { FilterState, DEFAULT_FILTER_STATE } from '@/types/university';
 import { Filter, X } from 'lucide-react';
@@ -38,13 +39,13 @@ export default function Universities() {
     setSearchParams(searchParams, { replace: true });
   }, [filters.search]);
 
-  const handleFilterChange = (newFilters: Partial<FilterState>) => {
+  const handleFilterChange = useCallback((newFilters: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
-  };
+  }, []);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({ ...DEFAULT_FILTER_STATE, search: filters.search });
-  };
+  }, [filters.search]);
 
   if (error) {
     return (
@@ -65,6 +66,14 @@ export default function Universities() {
     <div className="min-h-screen flex flex-col">
       <Header />
       
+      {/* Sticky Filter Bar */}
+      <StickyFilterBar
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        filteredCount={filteredUniversities.length}
+        totalCount={universities.length}
+      />
+      
       <main className="flex-1 bg-secondary/30">
         <div className="bg-background border-b border-border">
           <div className="container mx-auto px-4 py-8 md:py-10">
@@ -72,7 +81,7 @@ export default function Universities() {
               Browse Universities
             </h1>
             <p className="text-muted-foreground max-w-2xl text-sm">
-              Explore our comprehensive database. Use advanced filters to find your perfect match.
+              Sorted by closest deadline. Universities with approaching deadlines appear first.
             </p>
           </div>
         </div>
@@ -91,7 +100,7 @@ export default function Universities() {
               className="lg:hidden flex items-center justify-center gap-2 px-4 py-3 bg-card border border-border rounded-lg text-sm font-medium"
             >
               <Filter className="w-4 h-4" />
-              Filters
+              Advanced Filters
               {activeFilterCount > 0 && (
                 <span className="bg-accent text-accent-foreground text-xs px-1.5 py-0.5 rounded-full">
                   {activeFilterCount}
@@ -102,7 +111,7 @@ export default function Universities() {
 
           <div className="flex flex-col lg:flex-row gap-6">
             <aside className="hidden lg:block w-80 flex-shrink-0">
-              <div className="sticky top-20 bg-card border border-border rounded-xl p-5 max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+              <div className="sticky top-36 bg-card border border-border rounded-xl p-5 max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-hide">
                 <FilterSidebar
                   filters={filters}
                   onFilterChange={handleFilterChange}
@@ -119,7 +128,7 @@ export default function Universities() {
             {showMobileFilters && (
               <div className="lg:hidden fixed inset-0 z-50 bg-background">
                 <div className="p-4 border-b border-border flex items-center justify-between">
-                  <h3 className="font-serif text-lg font-medium">Filters</h3>
+                  <h3 className="font-serif text-lg font-medium">Advanced Filters</h3>
                   <button onClick={() => setShowMobileFilters(false)} className="p-2">
                     <X className="w-5 h-5" />
                   </button>
@@ -160,7 +169,7 @@ export default function Universities() {
                   <p className="text-muted-foreground text-sm">Try adjusting your filters</p>
                 </div>
               ) : (
-                <div className="grid gap-4 stagger-children">
+                <div className="grid gap-4">
                   {filteredUniversities.map(university => (
                     <UniversityCard key={university.id} university={university} />
                   ))}
